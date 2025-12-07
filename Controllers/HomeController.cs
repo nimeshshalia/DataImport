@@ -245,7 +245,7 @@ namespace DataImport.Controllers
                 // Log Exception
                 // 1. Prepare the dynamic error message securely
                 string innerExMessage = ex.InnerException?.Message ?? ex.Message; // Safely get inner or outer message
-                string strErrorLog = $"Column validation failed From {stagingTableName} - Inner Error: {innerExMessage}";
+                string strErrorLog = $" Line Number : {((Microsoft.Data.SqlClient.SqlException)ex).LineNumber} Column validation failed From {stagingTableName} - Inner Error: {innerExMessage} ";
 
                 // 2. Define the query using placeholders (@ErrorMsg)
                 string errorLogQry =
