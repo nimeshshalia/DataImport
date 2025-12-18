@@ -1,4 +1,4 @@
-using CsvHelper;
+﻿using CsvHelper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -179,6 +179,7 @@ namespace DataImport.Controllers
         {
             DateTime now = DateTime.Now;
             var stagingTableName = "Staging_" + now.ToString("dd_MM_yyyy");
+            var keyColumn = "Email";
             try
             {
                 if (file == null || file.Length == 0)
@@ -215,9 +216,21 @@ namespace DataImport.Controllers
                     }
                 }
 
+                // ----------------------------------------------------------
+                // 🔥 REMOVE DUPLICATES IN C# BASED ON DYNAMIC KEY COLUMN
+                // ----------------------------------------------------------
+                if (!records.First().ContainsKey(keyColumn))
+                    return BadRequest($"Key column '{keyColumn}' not found in CSV header.");
+
+                var uniqueRows = records
+                    .Where(r => r[keyColumn] != null)                                      // prevent null key
+                    .GroupBy(r => r[keyColumn]?.ToString().Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.Last())                                                // keep last occurrence
+                    .ToList();
+
                 // 4. Serialize the list of dictionaries into a JSON array string
                 // The keys of the dictionary (column names) become the JSON property names.
-                string jsonString = JsonSerializer.Serialize(records);
+                string jsonString = JsonSerializer.Serialize(uniqueRows);
 
                 // Ensure you are using the dynamic SP previously defined: dbo.Import_Dynamic_JSON_Columns
                 const string storedProcedureName = "dbo.Import_Dynamic_JSON_Columns";
@@ -232,6 +245,7 @@ namespace DataImport.Controllers
 
                         // Pass the parameters
                         command.Parameters.AddWithValue("@TableName", stagingTableName);
+                        //command.Parameters.AddWithValue("@KeyColumn", keyColumn);
                         var jsonParam = command.Parameters.Add("@JsonData", System.Data.SqlDbType.NVarChar, -1);
                         jsonParam.Value = jsonString;
 
